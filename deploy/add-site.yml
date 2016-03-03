@@ -1,0 +1,29 @@
+---
+
+- hosts: all
+
+  vars_files:
+    - vars/private.yml
+
+  #-----------------------------------------------------------------------------
+  # tasks
+  #-----------------------------------------------------------------------------
+
+
+  tasks:
+
+    - name: make available and enable site
+      template: src=templates/nginx-test.conf.j2 dest=/etc/nginx/sites-available/nginx-test.conf
+
+    - file: src=/etc/nginx/sites-available/nginx-test.conf dest=/etc/nginx/sites-enabled/nginx-test.conf state=link
+      notify:
+        - restart nginx
+
+
+  #-----------------------------------------------------------------------------
+  # handlers
+  #-----------------------------------------------------------------------------
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted

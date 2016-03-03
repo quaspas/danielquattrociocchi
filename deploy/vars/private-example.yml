@@ -1,0 +1,7 @@
+project_path: /var/www/danielquattrociocchi
+site_path: /var/www/danielquattrociocchi/site
+backup_path: /var/www/danielquattrociocchi/backup
+log_path: /var/www/danielquattrociocchi/logs
+media_path: /var/www/danielquattrociocchi/media
+static_path: /var/www/danielquattrociocchi/static
+venv_path: /var/www/danielquattrociocchi/venv

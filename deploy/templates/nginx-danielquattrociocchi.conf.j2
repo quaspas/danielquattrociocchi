@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+server {
+
+    listen 80;
+    server_name             {{ fqdn }};
+
+    location / {
+        root /;
+        try_files {{ static_path }}/maintenance.html $uri $uri/ @maintenance;
+     }
+
+    location @maintenance {
+      return 503;
+    }
+
+}

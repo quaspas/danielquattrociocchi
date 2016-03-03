@@ -1,0 +1,122 @@
+---
+
+- hosts: all
+
+  vars_files:
+    - vars/private.yml
+
+  #-----------------------------------------------------------------------------
+  # tasks
+  #-----------------------------------------------------------------------------
+
+
+  tasks:
+
+    - name: nginx repo
+      apt_repository: repo='ppa:nginx/stable' state=present
+
+    - name: update install packages cache
+      apt: update_cache=yes cache_valid_time=3600
+
+    - name: install packages
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - build-essential
+        - exim4
+        - fail2ban
+        - git
+        - libbz2-dev
+        - libfreetype6-dev
+        - libjpeg8-dev
+        - libpng12-dev
+        - libpq-dev
+        - nginx
+        - ntp
+        - oracle-java8-installer
+        - oracle-java8-set-default
+        - rsync
+        - update-notifier-common
+
+    - name: ssh setup
+      template: src=templates/sshd_config.j2 dest=/etc/ssh/sshd_config owner=0 group=0 mode=0644 validate='/usr/sbin/sshd -T -f %s'
+      notify:
+        - restart ssh
+
+    - name: fail2ban setup
+      template: src=templates/jail.local.j2 dest=/etc/fail2ban/jail.local
+      notify:
+        - restart fail2ban
+
+    - name: hosts setup
+      template: src=templates/hosts.j2 dest=/etc/hosts owner=0 group=0 mode=0644
+
+    - name: hostname setup
+      template: src=templates/hostname.j2 dest=/etc/hostname owner=0 group=0 mode=0644
+      notify:
+        - apply hostname
+
+    - name: ensure ownership of directories
+      file: state=directory path={{ item }} owner=www-data group=www-data
+      with_items:
+        - "{{ project_path }}"
+        - "{{ site_path }}"
+        - "{{ backup_path }}"
+        - "{{ log_path }}"
+        - "{{ media_path }}"
+        - "{{ static_path }}"
+        - "{{ venv_path }}"
+
+    - name: maintenance page
+      template: src=maintenance.html dest={{ static_path }}/maintenance.html
+
+    - file: path=/etc/nginx/sites-enabled/default state=absent
+    - file: path=/etc/nginx/sites-available/default state=absent
+
+    - name: nginx setup
+      template: src=templates/nginx.conf.j2 dest=/etc/nginx/nginx.conf
+      notify:
+        - restart nginx
+
+    - name: make available and enable site
+      template: src=templates/nginx-danielquattrociocchi.conf.j2 dest=/etc/nginx/sites-available/nginx-danielquattrociocchi.conf
+
+    - file: src=/etc/nginx/sites-available/nginx-danielquattrociocchi.conf dest=/etc/nginx/sites-enabled/nginx-danielquattrociocchi.conf state=link
+
+    - name: ufw setup
+      ufw: state=enabled policy=deny
+
+    - ufw: rule=allow port={{ item }}
+      with_items:
+        - 22
+        - 80
+        - 443
+
+    - name: Set timezone to UTC
+      when: ansible_date_time.tz != 'UTC'
+      command: timedatectl set-timezone UTC
+
+    - name: ensure ownership of /var/www
+      file: state=directory path=/var/www owner=www-data group=www-data recurse=yes
+
+  #-----------------------------------------------------------------------------
+  # handlers
+  #-----------------------------------------------------------------------------
+
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted
+
+    - name: restart supervisor
+      service: name=supervisor state=restarted
+
+    - name: restart postgres
+      service: name=postgresql state=restarted
+
+    - name: restart fail2ban
+      service: name=fail2ban state=restarted
+
+    - name: restart ssh
+      service: name=ssh state=restarted
+
+    - name: apply hostname
+      command: hostname {{ hostname }}
